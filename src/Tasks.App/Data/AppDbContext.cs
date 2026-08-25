@@ -54,6 +54,8 @@ public class AppDbContext : DbContext
                 ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 ""Name"" TEXT NOT NULL,
                 ""Email"" TEXT NOT NULL,
+                ""Phone"" TEXT NULL,
+                ""ProfilePicturePath"" TEXT NULL,
                 ""PasswordHash"" TEXT NOT NULL,
                 ""PasswordSalt"" TEXT NOT NULL,
                 ""IsEmailVerified"" INTEGER NOT NULL,
@@ -159,6 +161,18 @@ public class AppDbContext : DbContext
         try
         {
             await Database.ExecuteSqlRawAsync("ALTER TABLE \"Columns\" ADD COLUMN \"UserId\" INTEGER NOT NULL DEFAULT 1;");
+        }
+        catch { /* Coluna já existe */ }
+
+        try
+        {
+            await Database.ExecuteSqlRawAsync("ALTER TABLE \"Users\" ADD COLUMN \"Phone\" TEXT NULL;");
+        }
+        catch { /* Coluna já existe */ }
+
+        try
+        {
+            await Database.ExecuteSqlRawAsync("ALTER TABLE \"Users\" ADD COLUMN \"ProfilePicturePath\" TEXT NULL;");
         }
         catch { /* Coluna já existe */ }
     }
