@@ -32,7 +32,7 @@ public class TaskService : ITaskService
 
     public async Task InitializeDatabaseAsync()
     {
-        await _context.Database.EnsureCreatedAsync();
+        await _context.EnsureTablesCreatedAsync();
 
         if (!await _context.Columns.AnyAsync())
         {

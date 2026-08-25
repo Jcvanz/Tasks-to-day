@@ -1,0 +1,261 @@
+<UserControl x:Class="Tasks.App.Views.GoalsKanbanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:dd="urn:gong-wpf-dragdrop"
+             xmlns:conv="clr-namespace:Tasks.App.Converters"
+             xmlns:vm="clr-namespace:Tasks.App.ViewModels"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1100">
+
+    <UserControl.Resources>
+        <conv:PriorityToColorConverter x:Key="PriorityToColorConverter"/>
+        <conv:PriorityToBackgroundConverter x:Key="PriorityToBackgroundConverter"/>
+        <conv:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header / Toolbar -->
+            <RowDefinition Height="*"/>    <!-- Kanban Board -->
+        </Grid.RowDefinitions>
+
+        <!-- Header / Toolbar -->
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="16" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Título -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="8" Background="#3B82F6" Margin="0,0,12,0">
+                        <ui:SymbolIcon Symbol="Target24" FontSize="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Quadro de Metas &amp; Objetivos" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="Planeje e acompanhe seus projetos de médio e longo prazo com Drag &amp; Drop" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Botão de Ação -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:Button Content="Novo Objetivo" 
+                               Icon="{ui:SymbolIcon Add24}" 
+                               Appearance="Primary" 
+                               FontWeight="SemiBold"
+                               Padding="16,8"
+                               Command="{Binding AddNewTaskCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Kanban Board (Colunas Horizontais com Scroll) -->
+        <ScrollViewer Grid.Row="1" 
+                      HorizontalScrollBarVisibility="Auto" 
+                      VerticalScrollBarVisibility="Disabled" 
+                      Padding="0,0,0,8">
+            <ItemsControl ItemsSource="{Binding Columns}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <!-- Card da Coluna -->
+                        <Border Width="310" 
+                                Margin="0,0,16,0" 
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}" 
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" 
+                                BorderThickness="1" 
+                                CornerRadius="12" 
+                                Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> <!-- Header da Coluna -->
+                                    <RowDefinition Height="*"/>    <!-- Lista de Cards -->
+                                    <RowDefinition Height="Auto"/> <!-- Rodapé da Coluna -->
+                                </Grid.RowDefinitions>
+
+                                <!-- Header da Coluna -->
+                                <Grid Grid.Row="0" Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Pill colorido -->
+                                    <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5" Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+
+                                    <!-- Nome da Coluna -->
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+                                    <!-- Contador -->
+                                    <Border Grid.Column="2" CornerRadius="10" Background="{DynamicResource ControlFillColorDefaultBrush}" Padding="8,2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TaskCount}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Border>
+
+                                    <!-- Botão Adicionar -->
+                                    <ui:Button Grid.Column="3" 
+                                               Icon="{ui:SymbolIcon Add16}" 
+                                               Appearance="Transparent" 
+                                               Padding="4" 
+                                               ToolTip="Adicionar objetivo nesta coluna"
+                                               Command="{Binding DataContext.AddNewTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                               CommandParameter="{Binding}"/>
+                                </Grid>
+
+                                <!-- Lista de Tarefas com Drag and Drop -->
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox ItemsSource="{Binding Tasks}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Padding="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             dd:DragDrop.IsDragSource="True"
+                                             dd:DragDrop.IsDropTarget="True"
+                                             dd:DragDrop.DropHandler="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                             MouseDoubleClick="TaskCard_MouseDoubleClick">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="Margin" Value="0,0,0,10"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <ContentPresenter/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <!-- Card Individual -->
+                                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" 
+                                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" 
+                                                        BorderThickness="1" 
+                                                        CornerRadius="10" 
+                                                        Padding="12"
+                                                        Cursor="Hand">
+                                                    <Border.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Editar Objetivo" 
+                                                                      Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Excluir Objetivo" 
+                                                                      Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                        </ContextMenu>
+                                                    </Border.ContextMenu>
+
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+
+                                                        <!-- Badges: Prioridade e Data -->
+                                                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Badge Prioridade -->
+                                                            <Border Grid.Column="0" 
+                                                                    CornerRadius="6" 
+                                                                    Padding="6,2" 
+                                                                    Background="{Binding Priority, Converter={StaticResource PriorityToBackgroundConverter}}">
+                                                                <TextBlock Text="{Binding Priority}" 
+                                                                           FontSize="11" 
+                                                                           FontWeight="SemiBold" 
+                                                                           Foreground="{Binding Priority, Converter={StaticResource PriorityToColorConverter}}"/>
+                                                            </Border>
+
+                                                            <!-- Data de Vencimento -->
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Visibility="{Binding DueDate, Converter={StaticResource NullToVisibilityConverter}}">
+                                                                <ui:SymbolIcon Symbol="CalendarLtr16" FontSize="12" Margin="0,0,4,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                                <TextBlock Text="{Binding DueDate, StringFormat={}{0:dd/MM}}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <!-- Título -->
+                                                        <TextBlock Grid.Row="1" 
+                                                                   Text="{Binding Title}" 
+                                                                   FontSize="14" 
+                                                                   FontWeight="SemiBold" 
+                                                                   TextWrapping="Wrap" 
+                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                                                   Margin="0,0,0,6"/>
+
+                                                        <!-- Descrição -->
+                                                        <TextBlock Grid.Row="2" 
+                                                                   Text="{Binding Description}" 
+                                                                   FontSize="12" 
+                                                                   MaxHeight="36" 
+                                                                   TextTrimming="CharacterEllipsis" 
+                                                                   TextWrapping="Wrap" 
+                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" 
+                                                                   Visibility="{Binding Description, Converter={StaticResource NullToVisibilityConverter}}"
+                                                                   Margin="0,0,0,8"/>
+
+                                                        <!-- Checklist & Progresso -->
+                                                        <Grid Grid.Row="3" Margin="0,4,0,0">
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+
+                                                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4" Visibility="{Binding HasChecklist, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <ui:SymbolIcon Symbol="CheckmarkCircle16" FontSize="12" Margin="0,0,4,0" Foreground="#10B981"/>
+                                                                <TextBlock Text="Metas: " FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                                <TextBlock Text="{Binding ChecklistProgressText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                            </StackPanel>
+
+                                                            <ProgressBar Grid.Row="1" 
+                                                                         Height="4" 
+                                                                         Value="{Binding ProgressPercentage, Mode=OneWay}" 
+                                                                         Foreground="#10B981" 
+                                                                         Background="{DynamicResource ControlFillColorDefaultBrush}" 
+                                                                         Visibility="{Binding HasChecklist, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </ScrollViewer>
+
+                                <!-- Botão Adicionar no Rodapé -->
+                                <ui:Button Grid.Row="2" 
+                                           Content="+ Adicionar objetivo" 
+                                           Appearance="Transparent" 
+                                           HorizontalAlignment="Stretch" 
+                                           HorizontalContentAlignment="Left"
+                                           Margin="0,8,0,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Command="{Binding DataContext.AddNewTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                           CommandParameter="{Binding}"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -10,7 +10,8 @@ namespace Tasks.App.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    private readonly ITaskService _taskService;
+    private readonly IDailyTaskService _dailyTaskService;
+    private readonly ITaskService _kanbanService;
 
     [ObservableProperty]
     private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
@@ -18,11 +19,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isWindowVisible = true;
 
+    [ObservableProperty]
+    private int _selectedNavigationIndex = 0; // 0 = Meu Dia a Dia, 1 = Objetivos (Kanban)
+
+    public DailyTasksViewModel DailyTasksVm { get; }
     public KanbanViewModel KanbanVm { get; }
 
-    public MainViewModel(ITaskService taskService, KanbanViewModel kanbanVm)
+    public MainViewModel(IDailyTaskService dailyTaskService, ITaskService kanbanService, DailyTasksViewModel dailyTasksVm, KanbanViewModel kanbanVm)
     {
-        _taskService = taskService;
+        _dailyTaskService = dailyTaskService;
+        _kanbanService = kanbanService;
+        DailyTasksVm = dailyTasksVm;
         KanbanVm = kanbanVm;
     }
 
@@ -73,6 +80,13 @@ public partial class MainViewModel : ObservableObject
     public async Task AddQuickTaskAsync()
     {
         ShowWindow();
-        await KanbanVm.AddNewTaskAsync(null);
+        if (SelectedNavigationIndex == 0)
+        {
+            await DailyTasksVm.AddNewDailyTaskAsync();
+        }
+        else
+        {
+            await KanbanVm.AddNewTaskAsync(null);
+        }
     }
 }
