@@ -50,53 +50,7 @@ public class DailyTaskService : IDailyTaskService
     public async Task InitializeForUserAsync(int userId)
     {
         await _context.EnsureTablesCreatedAsync();
-
-        if (!await _context.DailyTasks.AnyAsync(t => t.UserId == userId))
-        {
-            var today = DateTime.Today;
-
-            var welcomeDailyTask = new DailyTask
-            {
-                UserId = userId,
-                Title = "Planejar o dia e revisar prioridades 📝",
-                Description = "Organize suas principais tarefas e objetivos de hoje.",
-                Priority = TaskPriority.Alta,
-                Recurrence = RecurrenceType.TodosOsDias,
-                StartDate = today,
-                CreatedAt = DateTime.UtcNow,
-                Checklists = new List<DailyChecklistItem>
-                {
-                    new() { Title = "Definir a meta principal do dia", Order = 0 },
-                    new() { Title = "Checar mensagens ou e-mails pendentes", Order = 1 },
-                    new() { Title = "Revisar o calendário de entregas", Order = 2 }
-                }
-            };
-
-            var hydrationTask = new DailyTask
-            {
-                UserId = userId,
-                Title = "Beber 2L de água 💧",
-                Description = "Manter-se hidratado durante a jornada de trabalho.",
-                Priority = TaskPriority.Media,
-                Recurrence = RecurrenceType.TodosOsDias,
-                StartDate = today,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            var workoutTask = new DailyTask
-            {
-                UserId = userId,
-                Title = "Treino / Caminhada de 30 minutos 🏃",
-                Description = "Atividade física para manter o corpo e a mente saudáveis.",
-                Priority = TaskPriority.Media,
-                Recurrence = RecurrenceType.DiasUteis,
-                StartDate = today,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _context.DailyTasks.AddRangeAsync(welcomeDailyTask, hydrationTask, workoutTask);
-            await _context.SaveChangesAsync();
-        }
+        // Contas iniciam 100% vazias, sem tarefas padrão
     }
 
     public async Task<List<DailyTaskWithStatus>> GetTasksForDateAsync(DateTime targetDate, int userId)

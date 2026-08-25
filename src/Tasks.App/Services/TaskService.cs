@@ -43,24 +43,7 @@ public class TaskService : ITaskService
 
             await _context.Columns.AddRangeAsync(defaultColumns);
             await _context.SaveChangesAsync();
-
-            var welcomeGoal = new TaskItem
-            {
-                Title = "Definir meu primeiro grande objetivo 🎯",
-                Description = "Use este quadro Kanban para estruturar metas, projetos de estudo ou carreira.",
-                Priority = TaskPriority.Alta,
-                ColumnId = defaultColumns[0].Id,
-                Order = 0,
-                CreatedAt = System.DateTime.UtcNow,
-                Checklist = new List<ChecklistItem>
-                {
-                    new() { Title = "Escrever os passos necessários", IsCompleted = false, Order = 0 },
-                    new() { Title = "Definir prazo de conclusão", IsCompleted = false, Order = 1 }
-                }
-            };
-
-            await _context.Tasks.AddAsync(welcomeGoal);
-            await _context.SaveChangesAsync();
+            // Contas iniciam com o quadro Kanban 100% limpo de tarefas/cards
         }
     }
 
