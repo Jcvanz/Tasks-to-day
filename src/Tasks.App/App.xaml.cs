@@ -13,14 +13,17 @@ public partial class App : Application
 {
     public static IServiceProvider ServiceProvider { get; private set; } = null!;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Evita que o app feche automaticamente quando o AuthWindow fechar
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         // Tratamento global de exceções
         DispatcherUnhandledException += (s, args) =>
         {
-            MessageBox.Show($"Ocorreu um erro inesperado:\n\n{args.Exception.Message}\n\n{args.Exception.StackTrace}", "Erro no Aplicativo", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Ocorreu um aviso no aplicativo:\n\n{args.Exception.Message}", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
         };
 
@@ -28,7 +31,7 @@ public partial class App : Application
         {
             if (args.ExceptionObject is Exception ex)
             {
-                MessageBox.Show($"Ocorreu um erro fatal:\n\n{ex.Message}\n\n{ex.StackTrace}", "Erro Fatal", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Erro:\n\n{ex.Message}", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         };
 
@@ -38,13 +41,33 @@ public partial class App : Application
             ConfigureServices(services);
             ServiceProvider = services.BuildServiceProvider();
 
+            var authService = ServiceProvider.GetRequiredService<IAuthService>();
+            var savedUser = await authService.GetActiveSessionUserAsync();
+
+            if (savedUser == null)
+            {
+                // Abrir tela de autenticação
+                var authWindow = ServiceProvider.GetRequiredService<AuthWindow>();
+                bool? authResult = authWindow.ShowDialog();
+
+                if (authResult != true)
+                {
+                    Shutdown();
+                    return;
+                }
+            }
+
             var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
             MainWindow = mainWindow;
+            
+            // Define que o fechamento da janela principal encerra a aplicação
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
             mainWindow.Show();
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Falha ao inicializar o aplicativo:\n\n{ex.Message}\n\n{ex.StackTrace}", "Erro na Inicialização", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
         }
     }
 
@@ -54,6 +77,8 @@ public partial class App : Application
         services.AddDbContext<AppDbContext>();
 
         // Serviços de Negócio
+        services.AddSingleton<IEmailService, EmailService>();
+        services.AddSingleton<IAuthService, AuthService>();
         services.AddScoped<IDailyTaskService, DailyTaskService>();
         services.AddScoped<ITaskService, TaskService>();
 
@@ -61,7 +86,8 @@ public partial class App : Application
         services.AddSingleton<Func<DateTime, Task<bool>>>(sp => (initialDate) =>
         {
             var taskService = sp.GetRequiredService<IDailyTaskService>();
-            var editorVm = new DailyTaskEditorViewModel(initialDate, taskService);
+            var authService = sp.GetRequiredService<IAuthService>();
+            var editorVm = new DailyTaskEditorViewModel(initialDate, taskService, authService);
             var editorWindow = new DailyTaskEditorWindow(editorVm)
             {
                 Owner = Application.Current.MainWindow
@@ -84,11 +110,13 @@ public partial class App : Application
         });
 
         // ViewModels
+        services.AddTransient<AuthViewModel>();
         services.AddSingleton<DailyTasksViewModel>();
         services.AddSingleton<KanbanViewModel>();
         services.AddSingleton<MainViewModel>();
 
-        // Janela Principal
+        // Telas / Views
+        services.AddTransient<AuthWindow>();
         services.AddSingleton<MainWindow>();
     }
 }
