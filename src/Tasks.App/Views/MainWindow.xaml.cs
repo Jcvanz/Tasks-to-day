@@ -1,8 +1,6 @@
 using System;
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
 using Tasks.App.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -23,20 +21,27 @@ public partial class MainWindow : FluentWindow
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        await ViewModel.DailyTasksVm.InitializeAsync();
         await ViewModel.KanbanVm.LoadBoardAsync();
     }
 
-    private void TaskCard_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private void NavDailyTasks_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is ListBox listBox && listBox.SelectedItem is TaskItemViewModel selectedTask)
-        {
-            ViewModel.KanbanVm.EditTaskCommand.Execute(selectedTask);
-        }
+        ViewModel.SelectedNavigationIndex = 0;
+        DailyTasksViewControl.Visibility = Visibility.Visible;
+        GoalsKanbanViewControl.Visibility = Visibility.Collapsed;
+    }
+
+    private void NavGoals_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedNavigationIndex = 1;
+        DailyTasksViewControl.Visibility = Visibility.Collapsed;
+        GoalsKanbanViewControl.Visibility = Visibility.Visible;
     }
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        // Minimizar para o System Tray em vez de fechar
+        // Minimizar para a bandeja do sistema
         e.Cancel = true;
         ViewModel.HideWindow();
         base.OnClosing(e);
