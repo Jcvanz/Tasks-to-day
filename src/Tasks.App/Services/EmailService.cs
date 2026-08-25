@@ -13,7 +13,7 @@ namespace Tasks.App.Services;
 
 public class SmtpConfig
 {
-    public string ApiUrl { get; set; } = string.Empty;
+    public string ApiUrl { get; set; } = "https://task-to-day-services.vercel.app/api/send-code";
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; } = 587;
     public string SenderName { get; set; } = "Tasks To Day";
@@ -57,7 +57,8 @@ public class EmailService : IEmailService
             if (File.Exists(configPath))
             {
                 string json = File.ReadAllText(configPath);
-                var config = JsonSerializer.Deserialize<AppConfig>(json);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var config = JsonSerializer.Deserialize<AppConfig>(json, options);
                 if (config?.SmtpSettings != null)
                 {
                     if (!string.IsNullOrWhiteSpace(config.SmtpSettings.ApiUrl)) _smtpConfig.ApiUrl = config.SmtpSettings.ApiUrl;
