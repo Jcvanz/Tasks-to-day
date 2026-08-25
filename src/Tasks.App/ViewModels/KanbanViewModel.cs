@@ -14,6 +14,7 @@ namespace Tasks.App.ViewModels;
 public partial class KanbanViewModel : ObservableObject, IDropTarget
 {
     private readonly ITaskService _taskService;
+    private readonly IAuthService _authService;
     private readonly Func<TaskItemViewModel?, int, Task<bool>> _openTaskEditorFunc;
 
     public ObservableCollection<ColumnViewModel> Columns { get; } = new();
@@ -24,9 +25,12 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
     [ObservableProperty]
     private bool _isLoading;
 
-    public KanbanViewModel(ITaskService taskService, Func<TaskItemViewModel?, int, Task<bool>> openTaskEditorFunc)
+    private int CurrentUserId => _authService.CurrentUser?.Id ?? 1;
+
+    public KanbanViewModel(ITaskService taskService, IAuthService authService, Func<TaskItemViewModel?, int, Task<bool>> openTaskEditorFunc)
     {
         _taskService = taskService;
+        _authService = authService;
         _openTaskEditorFunc = openTaskEditorFunc;
     }
 
@@ -36,8 +40,8 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
         IsLoading = true;
         try
         {
-            await _taskService.InitializeDatabaseAsync();
-            var columns = await _taskService.GetColumnsWithTasksAsync();
+            await _taskService.InitializeDatabaseForUserAsync(CurrentUserId);
+            var columns = await _taskService.GetColumnsWithTasksAsync(CurrentUserId);
 
             Columns.Clear();
             foreach (var col in columns)
@@ -99,7 +103,6 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
         }
     }
 
-    // GongSolutions Drag & Drop Implementation
     public void DragOver(IDropInfo dropInfo)
     {
         if (dropInfo.Data is TaskItemViewModel && dropInfo.TargetCollection != null)
@@ -113,7 +116,6 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
     {
         if (dropInfo.Data is not TaskItemViewModel sourceTask) return;
 
-        // Identificar a coluna de destino
         ColumnViewModel? targetColumn = null;
         foreach (var col in Columns)
         {
@@ -126,7 +128,6 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
 
         if (targetColumn == null) return;
 
-        // Remover do local de origem na UI
         foreach (var col in Columns)
         {
             if (col.Tasks.Contains(sourceTask))
@@ -136,7 +137,6 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
             }
         }
 
-        // Inserir na posição de destino
         int insertIndex = dropInfo.InsertIndex;
         if (insertIndex < 0) insertIndex = 0;
         if (insertIndex > targetColumn.Tasks.Count) insertIndex = targetColumn.Tasks.Count;
@@ -144,7 +144,6 @@ public partial class KanbanViewModel : ObservableObject, IDropTarget
         sourceTask.ColumnId = targetColumn.Id;
         targetColumn.Tasks.Insert(insertIndex, sourceTask);
 
-        // Persistir no banco assincronamente
         _ = _taskService.MoveTaskAsync(sourceTask.Id, targetColumn.Id, insertIndex);
     }
 }

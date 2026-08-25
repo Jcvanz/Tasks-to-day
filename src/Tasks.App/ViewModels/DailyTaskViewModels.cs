@@ -1,8 +1,5 @@
-using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -115,6 +112,7 @@ public partial class CalendarDayViewModel : ObservableObject
     public int DayNumber => Date.Day;
     public bool IsCurrentMonth { get; }
     public bool IsToday => Date.Date == DateTime.Today;
+    public bool IsPast => Date.Date < DateTime.Today;
 
     [ObservableProperty]
     private bool _isSelected;
@@ -153,6 +151,7 @@ public partial class CalendarDayViewModel : ObservableObject
 public partial class DailyTasksViewModel : ObservableObject
 {
     private readonly IDailyTaskService _taskService;
+    private readonly IAuthService _authService;
     private readonly Func<DateTime, Task<bool>> _openTaskEditorFunc;
 
     [ObservableProperty]
@@ -170,14 +169,21 @@ public partial class DailyTasksViewModel : ObservableObject
     public string CurrentMonthHeader => DisplayMonth.ToString("MMMM yyyy", new CultureInfo("pt-BR")).ToUpperInvariant();
     public string FormattedSelectedDate => SelectedDate.ToString("dddd, dd 'de' MMMM", new CultureInfo("pt-BR"));
 
+    // Regra: Bloquear criação para datas anteriores a hoje
+    public bool CanAddTaskToSelectedDate => SelectedDate.Date >= DateTime.Today;
+    public bool IsPastDate => SelectedDate.Date < DateTime.Today;
+
     public int TotalTasksCount => TasksForSelectedDate.Count;
     public int CompletedTasksCount => TasksForSelectedDate.Count(t => t.IsCompleted);
     public double DayProgressPercentage => TotalTasksCount == 0 ? 0 : (double)CompletedTasksCount / TotalTasksCount * 100;
     public string DayProgressSummary => TotalTasksCount == 0 ? "Nenhuma tarefa agendada" : $"{CompletedTasksCount} de {TotalTasksCount} tarefas concluídas ({DayProgressPercentage:F0}%)";
 
-    public DailyTasksViewModel(IDailyTaskService taskService, Func<DateTime, Task<bool>> openTaskEditorFunc)
+    private int CurrentUserId => _authService.CurrentUser?.Id ?? 1;
+
+    public DailyTasksViewModel(IDailyTaskService taskService, IAuthService authService, Func<DateTime, Task<bool>> openTaskEditorFunc)
     {
         _taskService = taskService;
+        _authService = authService;
         _openTaskEditorFunc = openTaskEditorFunc;
     }
 
@@ -187,7 +193,7 @@ public partial class DailyTasksViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            await _taskService.InitializeAsync();
+            await _taskService.InitializeForUserAsync(CurrentUserId);
             await RefreshCalendarAsync();
             await LoadTasksForSelectedDateAsync();
         }
@@ -219,6 +225,8 @@ public partial class DailyTasksViewModel : ObservableObject
         DisplayMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         SelectedDate = DateTime.Today;
         OnPropertyChanged(nameof(CurrentMonthHeader));
+        OnPropertyChanged(nameof(CanAddTaskToSelectedDate));
+        OnPropertyChanged(nameof(IsPastDate));
         await RefreshCalendarAsync();
         await LoadTasksForSelectedDateAsync();
     }
@@ -235,26 +243,26 @@ public partial class DailyTasksViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(FormattedSelectedDate));
+        OnPropertyChanged(nameof(CanAddTaskToSelectedDate));
+        OnPropertyChanged(nameof(IsPastDate));
         await LoadTasksForSelectedDateAsync();
     }
 
     public async Task RefreshCalendarAsync()
     {
-        var overviews = await _taskService.GetMonthOverviewAsync(DisplayMonth.Year, DisplayMonth.Month);
+        var overviews = await _taskService.GetMonthOverviewAsync(DisplayMonth.Year, DisplayMonth.Month, CurrentUserId);
 
         CalendarDays.Clear();
         var firstDayOfMonth = new DateTime(DisplayMonth.Year, DisplayMonth.Month, 1);
         int daysInMonth = DateTime.DaysInMonth(DisplayMonth.Year, DisplayMonth.Month);
 
-        // Preenchimento dos dias do mês anterior
-        int startDayOfWeek = (int)firstDayOfMonth.DayOfWeek; // 0 = Domingo
+        int startDayOfWeek = (int)firstDayOfMonth.DayOfWeek;
         for (int i = startDayOfWeek - 1; i >= 0; i--)
         {
             var prevDate = firstDayOfMonth.AddDays(-i - 1);
             CalendarDays.Add(new CalendarDayViewModel(prevDate, false));
         }
 
-        // Dias do mês atual
         for (int day = 1; day <= daysInMonth; day++)
         {
             var date = new DateTime(DisplayMonth.Year, DisplayMonth.Month, day);
@@ -266,7 +274,6 @@ public partial class DailyTasksViewModel : ObservableObject
             CalendarDays.Add(dayVm);
         }
 
-        // Preenchimento dos dias do próximo mês para fechar a grade de 35 ou 42 células
         int remainingCells = (7 - (CalendarDays.Count % 7)) % 7;
         var lastDayOfMonth = new DateTime(DisplayMonth.Year, DisplayMonth.Month, daysInMonth);
         for (int i = 1; i <= remainingCells; i++)
@@ -278,7 +285,7 @@ public partial class DailyTasksViewModel : ObservableObject
 
     public async Task LoadTasksForSelectedDateAsync()
     {
-        var tasks = await _taskService.GetTasksForDateAsync(SelectedDate);
+        var tasks = await _taskService.GetTasksForDateAsync(SelectedDate, CurrentUserId);
 
         TasksForSelectedDate.Clear();
         foreach (var t in tasks)
@@ -305,7 +312,7 @@ public partial class DailyTasksViewModel : ObservableObject
 
     private async Task RefreshDayBadgeAsync(DateTime date)
     {
-        var overviews = await _taskService.GetMonthOverviewAsync(date.Year, date.Month);
+        var overviews = await _taskService.GetMonthOverviewAsync(date.Year, date.Month, CurrentUserId);
         if (overviews.TryGetValue(date.Date, out var ov))
         {
             var dayVm = CalendarDays.FirstOrDefault(d => d.Date.Date == date.Date);
@@ -316,6 +323,16 @@ public partial class DailyTasksViewModel : ObservableObject
     [RelayCommand]
     public async Task AddNewDailyTaskAsync()
     {
+        if (SelectedDate.Date < DateTime.Today)
+        {
+            MessageBox.Show(
+                "Não é permitido agendar tarefas para datas passadas. Selecione o dia de hoje ou uma data futura.",
+                "Data Inválida",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         bool saved = await _openTaskEditorFunc(SelectedDate);
         if (saved)
         {

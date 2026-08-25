@@ -1,7 +1,4 @@
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Tasks.App.Models;
@@ -18,6 +15,7 @@ public class RecurrenceOptionItem
 public partial class DailyTaskEditorViewModel : ObservableObject
 {
     private readonly IDailyTaskService _taskService;
+    private readonly IAuthService _authService;
     private readonly int _taskId = 0;
 
     [ObservableProperty]
@@ -42,10 +40,13 @@ public partial class DailyTaskEditorViewModel : ObservableObject
     public ObservableCollection<string> ChecklistDrafts { get; } = new();
     public Array Priorities => Enum.GetValues(typeof(TaskPriority));
 
-    public DailyTaskEditorViewModel(DateTime initialDate, IDailyTaskService taskService)
+    public DateTime MinSelectableDate => DateTime.Today;
+
+    public DailyTaskEditorViewModel(DateTime initialDate, IDailyTaskService taskService, IAuthService authService)
     {
         _taskService = taskService;
-        _startDate = initialDate;
+        _authService = authService;
+        _startDate = initialDate < DateTime.Today ? DateTime.Today : initialDate;
 
         RecurrenceOptions.Add(new() { Type = RecurrenceType.ApenasNesteDia, DisplayName = "Apenas na data selecionada (1 dia)" });
         RecurrenceOptions.Add(new() { Type = RecurrenceType.Proximos3Dias, DisplayName = "Próximos 3 dias" });
@@ -85,11 +86,12 @@ public partial class DailyTaskEditorViewModel : ObservableObject
             Title = Title.Trim(),
             Description = Description?.Trim(),
             Priority = Priority,
-            StartDate = StartDate.Date,
+            StartDate = StartDate.Date < DateTime.Today ? DateTime.Today : StartDate.Date,
             Recurrence = SelectedRecurrence.Type
         };
 
-        await _taskService.SaveDailyTaskAsync(dailyTask, ChecklistDrafts.ToList());
+        int userId = _authService.CurrentUser?.Id ?? 1;
+        await _taskService.SaveDailyTaskAsync(dailyTask, ChecklistDrafts.ToList(), userId);
         return true;
     }
 }
