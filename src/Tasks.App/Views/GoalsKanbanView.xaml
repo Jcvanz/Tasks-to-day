@@ -168,11 +168,12 @@
                                                             <RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
 
-                                                        <!-- Badges: Prioridade e Data -->
+                                                        <!-- Badges: Prioridade, Data e Botão Excluir -->
                                                         <Grid Grid.Row="0" Margin="0,0,0,8">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto"/>
                                                                 <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
                                                                 <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
 
@@ -188,10 +189,20 @@
                                                             </Border>
 
                                                             <!-- Data de Vencimento -->
-                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Visibility="{Binding DueDate, Converter={StaticResource NullToVisibilityConverter}}">
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,6,0" VerticalAlignment="Center" Visibility="{Binding DueDate, Converter={StaticResource NullToVisibilityConverter}}">
                                                                 <ui:SymbolIcon Symbol="CalendarLtr16" FontSize="12" Margin="0,0,4,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                                                 <TextBlock Text="{Binding DueDate, StringFormat={}{0:dd/MM}}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                                             </StackPanel>
+
+                                                            <!-- Botão Excluir Card -->
+                                                            <ui:Button Grid.Column="3" 
+                                                                       Icon="{ui:SymbolIcon Delete16}" 
+                                                                       Appearance="Transparent" 
+                                                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                                       Padding="4,2" 
+                                                                       ToolTip="Excluir objetivo"
+                                                                       Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                       CommandParameter="{Binding}"/>
                                                         </Grid>
 
                                                         <!-- Título -->

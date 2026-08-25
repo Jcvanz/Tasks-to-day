@@ -16,11 +16,29 @@ public partial class MainWindow : FluentWindow
         DataContext = viewModel;
         InitializeComponent();
 
+        ViewModel.RequestLogout += () =>
+        {
+            Hide();
+            var authWindow = App.ServiceProvider.GetService(typeof(AuthWindow)) as AuthWindow;
+            if (authWindow != null && authWindow.ShowDialog() == true)
+            {
+                ViewModel.RefreshUserData();
+                _ = ViewModel.DailyTasksVm.InitializeAsync();
+                _ = ViewModel.KanbanVm.LoadBoardAsync();
+                Show();
+            }
+            else
+            {
+                Application.Current.Shutdown();
+            }
+        };
+
         Loaded += MainWindow_Loaded;
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        ViewModel.RefreshUserData();
         await ViewModel.DailyTasksVm.InitializeAsync();
         await ViewModel.KanbanVm.LoadBoardAsync();
     }

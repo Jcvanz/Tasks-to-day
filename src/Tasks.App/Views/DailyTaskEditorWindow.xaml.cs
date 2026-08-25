@@ -1,4 +1,6 @@
+using System;
 using System.Windows;
+using System.Windows.Controls;
 using Tasks.App.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -13,6 +15,20 @@ public partial class DailyTaskEditorWindow : FluentWindow
         ViewModel = viewModel;
         DataContext = viewModel;
         InitializeComponent();
+
+        Loaded += DailyTaskEditorWindow_Loaded;
+    }
+
+    private void DailyTaskEditorWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            StartDatePicker.DisplayDateStart = DateTime.Today;
+        }
+        catch
+        {
+            // fallback
+        }
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
