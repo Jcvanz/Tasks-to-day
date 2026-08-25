@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +8,7 @@ namespace Tasks.App.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private readonly IAuthService _authService;
     private readonly IDailyTaskService _dailyTaskService;
     private readonly ITaskService _kanbanService;
 
@@ -22,15 +21,27 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedNavigationIndex = 0; // 0 = Meu Dia a Dia, 1 = Objetivos (Kanban)
 
+    public string CurrentUserName => _authService.CurrentUser?.Name ?? "Minha Conta";
+    public string CurrentUserEmail => _authService.CurrentUser?.Email ?? string.Empty;
+
     public DailyTasksViewModel DailyTasksVm { get; }
     public KanbanViewModel KanbanVm { get; }
 
-    public MainViewModel(IDailyTaskService dailyTaskService, ITaskService kanbanService, DailyTasksViewModel dailyTasksVm, KanbanViewModel kanbanVm)
+    public event Action? RequestLogout;
+
+    public MainViewModel(IAuthService authService, IDailyTaskService dailyTaskService, ITaskService kanbanService, DailyTasksViewModel dailyTasksVm, KanbanViewModel kanbanVm)
     {
+        _authService = authService;
         _dailyTaskService = dailyTaskService;
         _kanbanService = kanbanService;
         DailyTasksVm = dailyTasksVm;
         KanbanVm = kanbanVm;
+    }
+
+    public void RefreshUserData()
+    {
+        OnPropertyChanged(nameof(CurrentUserName));
+        OnPropertyChanged(nameof(CurrentUserEmail));
     }
 
     [RelayCommand]
@@ -74,6 +85,22 @@ public partial class MainViewModel : ObservableObject
     public void ExitApplication()
     {
         Application.Current.Shutdown();
+    }
+
+    [RelayCommand]
+    public async Task LogoutAsync()
+    {
+        var result = MessageBox.Show(
+            "Deseja realmente sair da sua conta?",
+            "Confirmar Saída",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            await _authService.LogoutAsync();
+            RequestLogout?.Invoke();
+        }
     }
 
     [RelayCommand]

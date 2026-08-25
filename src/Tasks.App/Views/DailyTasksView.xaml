@@ -211,13 +211,27 @@
                         <TextBlock Text="{Binding DayProgressSummary}" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2,0,0"/>
                     </StackPanel>
 
-                    <ui:Button Grid.Column="1" 
-                               Content="Nova Tarefa" 
-                               Icon="{ui:SymbolIcon Add24}" 
-                               Appearance="Primary" 
-                               FontWeight="SemiBold"
-                               Padding="16,8"
-                               Command="{Binding AddNewDailyTaskCommand}"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Badge se a data for no passado -->
+                        <Border Background="{DynamicResource ControlFillColorDefaultBrush}" 
+                                CornerRadius="8" 
+                                Padding="10,6" 
+                                Visibility="{Binding IsPastDate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="History24" FontSize="14" Margin="0,0,6,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <TextBlock Text="Histórico (Data Passada)" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Botão Nova Tarefa (somente para hoje ou datas futuras) -->
+                        <ui:Button Content="Nova Tarefa" 
+                                   Icon="{ui:SymbolIcon Add24}" 
+                                   Appearance="Primary" 
+                                   FontWeight="SemiBold"
+                                   Padding="16,8"
+                                   Visibility="{Binding CanAddTaskToSelectedDate, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                   Command="{Binding AddNewDailyTaskCommand}"/>
+                    </StackPanel>
                 </Grid>
 
                 <!-- Barra de Progresso do Dia -->
@@ -245,8 +259,17 @@
                             </StackPanel.Style>
                             <ui:SymbolIcon Symbol="CheckmarkCircle48" FontSize="48" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
                             <TextBlock Text="Nenhuma tarefa para este dia" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock Text="Clique em 'Nova Tarefa' para agendar uma atividade" FontSize="13" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,12"/>
-                            <ui:Button Content="Criar Tarefa para este Dia" Appearance="Secondary" HorizontalAlignment="Center" Command="{Binding AddNewDailyTaskCommand}"/>
+                            <TextBlock Text="Clique em 'Nova Tarefa' para agendar uma atividade" 
+                                       FontSize="13" 
+                                       HorizontalAlignment="Center" 
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" 
+                                       Margin="0,4,0,12"
+                                       Visibility="{Binding CanAddTaskToSelectedDate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            <ui:Button Content="Criar Tarefa para este Dia" 
+                                       Appearance="Secondary" 
+                                       HorizontalAlignment="Center" 
+                                       Visibility="{Binding CanAddTaskToSelectedDate, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                       Command="{Binding AddNewDailyTaskCommand}"/>
                         </StackPanel>
 
                         <!-- Cards das Tarefas -->

@@ -46,7 +46,7 @@
 
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Data de Entrega" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                <DatePicker SelectedDate="{Binding DueDate}" HorizontalAlignment="Stretch"/>
+                <DatePicker x:Name="DueDatePicker" SelectedDate="{Binding DueDate}" HorizontalAlignment="Stretch"/>
             </StackPanel>
         </Grid>
 

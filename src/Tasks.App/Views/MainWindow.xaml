@@ -77,7 +77,7 @@
 
                     <!-- Botões de Navegação Lateral -->
                     <StackPanel Grid.Row="1">
-                        <!-- 1. Meu Dia a Dia (Calendário) -->
+                        <!-- Meu Dia a Dia (Calendário) -->
                         <RadioButton GroupName="AppNav" 
                                      IsChecked="True" 
                                      Click="NavDailyTasks_Click"
@@ -103,7 +103,7 @@
                             </RadioButton.Template>
                         </RadioButton>
 
-                        <!-- 2. Quadro de Objetivos (Kanban) -->
+                        <!-- Quadro de Objetivos (Kanban) -->
                         <RadioButton GroupName="AppNav" 
                                      Click="NavGoals_Click"
                                      Margin="0,0,0,8"
@@ -129,27 +129,54 @@
                         </RadioButton>
                     </StackPanel>
 
-                    <!-- Rodapé da Sidebar: Alternar Tema -->
+                    <!-- Rodapé da Sidebar: Perfil + Tema + Logout -->
                     <StackPanel Grid.Row="2">
+                        <!-- Perfil do Usuário Logado -->
+                        <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="10,8" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="16" Background="#6366F1" Margin="0,0,8,0">
+                                    <ui:SymbolIcon Symbol="Person24" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding CurrentUserName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding CurrentUserEmail}" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
                         <ui:Button Icon="{ui:SymbolIcon DarkTheme24}" 
                                    Content="Alternar Tema" 
                                    Appearance="Secondary" 
-                                   HorizontalAlignment="Stretch"
-                                   HorizontalContentAlignment="Left"
-                                   Padding="12,10"
+                                   HorizontalAlignment="Stretch" 
+                                   HorizontalContentAlignment="Left" 
+                                   Padding="12,8" 
+                                   Margin="0,0,0,6"
                                    Command="{Binding ToggleThemeCommand}"/>
+
+                        <ui:Button Icon="{ui:SymbolIcon SignOut24}" 
+                                   Content="Sair da Conta" 
+                                   Appearance="Transparent" 
+                                   Foreground="#EF4444"
+                                   HorizontalAlignment="Stretch" 
+                                   HorizontalContentAlignment="Left" 
+                                   Padding="12,8" 
+                                   Command="{Binding LogoutCommand}"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
             <!-- ================= ÁREA DE CONTEÚDO PRINCIPAL ================= -->
             <Grid Grid.Column="1">
-                <!-- Visão 1: Meu Dia a Dia (Calendário & Tarefas Diárias) -->
+                <!-- Meu Dia a Dia (Calendário & Tarefas Diárias) -->
                 <views:DailyTasksView x:Name="DailyTasksViewControl" 
                                       DataContext="{Binding DailyTasksVm}" 
                                       Visibility="Visible"/>
 
-                <!-- Visão 2: Quadro de Objetivos (Kanban com Drag & Drop) -->
+                <!-- Quadro de Objetivos (Kanban com Drag & Drop) -->
                 <views:GoalsKanbanView x:Name="GoalsKanbanViewControl" 
                                        DataContext="{Binding KanbanVm}" 
                                        Visibility="Collapsed"/>

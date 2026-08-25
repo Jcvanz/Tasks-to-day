@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using Tasks.App.ViewModels;
 using Wpf.Ui.Controls;
@@ -13,6 +14,21 @@ public partial class TaskEditorWindow : FluentWindow
         ViewModel = viewModel;
         DataContext = viewModel;
         InitializeComponent();
+
+        Loaded += TaskEditorWindow_Loaded;
+    }
+
+    private void TaskEditorWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Bloqueia seleção de datas passadas para prazos de entrega
+            DueDatePicker.DisplayDateStart = DateTime.Today;
+        }
+        catch
+        {
+            // fallback
+        }
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)

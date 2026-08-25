@@ -51,7 +51,7 @@
 
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Data de Início" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                <DatePicker SelectedDate="{Binding StartDate}" HorizontalAlignment="Stretch"/>
+                <DatePicker x:Name="StartDatePicker" SelectedDate="{Binding StartDate}" HorizontalAlignment="Stretch"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2">
