@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +14,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IAuthService _authService;
     private readonly IDailyTaskService _dailyTaskService;
     private readonly ITaskService _kanbanService;
+    private readonly Func<Task<bool>> _openProfileSettingsFunc;
 
     [ObservableProperty]
     private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
@@ -23,25 +27,49 @@ public partial class MainViewModel : ObservableObject
 
     public string CurrentUserName => _authService.CurrentUser?.Name ?? "Minha Conta";
     public string CurrentUserEmail => _authService.CurrentUser?.Email ?? string.Empty;
+    public string? CurrentUserProfilePicture => _authService.CurrentUser?.ProfilePicturePath;
+    public bool HasUserProfilePicture => !string.IsNullOrWhiteSpace(CurrentUserProfilePicture) && File.Exists(CurrentUserProfilePicture);
 
     public DailyTasksViewModel DailyTasksVm { get; }
     public KanbanViewModel KanbanVm { get; }
 
     public event Action? RequestLogout;
 
-    public MainViewModel(IAuthService authService, IDailyTaskService dailyTaskService, ITaskService kanbanService, DailyTasksViewModel dailyTasksVm, KanbanViewModel kanbanVm)
+    public MainViewModel(
+        IAuthService authService, 
+        IDailyTaskService dailyTaskService, 
+        ITaskService kanbanService, 
+        DailyTasksViewModel dailyTasksVm, 
+        KanbanViewModel kanbanVm,
+        Func<Task<bool>> openProfileSettingsFunc)
     {
         _authService = authService;
         _dailyTaskService = dailyTaskService;
         _kanbanService = kanbanService;
         DailyTasksVm = dailyTasksVm;
         KanbanVm = kanbanVm;
+        _openProfileSettingsFunc = openProfileSettingsFunc;
     }
 
     public void RefreshUserData()
     {
         OnPropertyChanged(nameof(CurrentUserName));
         OnPropertyChanged(nameof(CurrentUserEmail));
+        OnPropertyChanged(nameof(CurrentUserProfilePicture));
+        OnPropertyChanged(nameof(HasUserProfilePicture));
+    }
+
+    [RelayCommand]
+    public async Task OpenProfileSettingsAsync()
+    {
+        bool result = await _openProfileSettingsFunc();
+        RefreshUserData();
+
+        // Se o usuário foi excluído ou deslogado
+        if (_authService.CurrentUser == null)
+        {
+            RequestLogout?.Invoke();
+        }
     }
 
     [RelayCommand]
