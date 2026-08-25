@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -26,6 +27,9 @@ public interface IAuthService
     Task<AuthResult> VerifyCodeAsync(string email, string code);
     Task<bool> ResendCodeAsync(string email);
     Task LogoutAsync();
+    Task<AuthResult> UpdateProfileAsync(int userId, string name, string? phone, string? profilePicturePath);
+    Task<AuthResult> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
+    Task<AuthResult> DeleteAccountAsync(int userId, string confirmationPassword);
 }
 
 public class AuthService : IAuthService
@@ -82,7 +86,6 @@ public class AuthService : IAuthService
             {
                 return new AuthResult { Success = false, ErrorMessage = "Este e-mail já está cadastrado. Faça login." };
             }
-            // Se já cadastrou mas não verificou, reutilizar e reenviar código
             existingUser.Name = name;
             var (newHash, newSalt) = HashPassword(password);
             existingUser.PasswordHash = newHash;
@@ -190,7 +193,6 @@ public class AuthService : IAuthService
 
         if (rememberMe)
         {
-            // Limpar sessões antigas
             var oldSessions = await _context.UserSessions.Where(s => s.UserId == user.Id).ToListAsync();
             _context.UserSessions.RemoveRange(oldSessions);
 
@@ -219,9 +221,111 @@ public class AuthService : IAuthService
         CurrentUser = null;
     }
 
+    public async Task<AuthResult> UpdateProfileAsync(int userId, string name, string? phone, string? profilePicturePath)
+    {
+        name = name.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return new AuthResult { Success = false, ErrorMessage = "O nome não pode ficar vazio." };
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return new AuthResult { Success = false, ErrorMessage = "Usuário não encontrado." };
+
+        user.Name = name;
+        user.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+
+        // Se houver uma nova foto enviada
+        if (!string.IsNullOrWhiteSpace(profilePicturePath) && File.Exists(profilePicturePath))
+        {
+            try
+            {
+                var avatarsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TasksApp", "avatars");
+                if (!Directory.Exists(avatarsDir))
+                {
+                    Directory.CreateDirectory(avatarsDir);
+                }
+
+                string ext = Path.GetExtension(profilePicturePath);
+                string destFile = Path.Combine(avatarsDir, $"avatar_{userId}_{DateTime.UtcNow.Ticks}{ext}");
+                File.Copy(profilePicturePath, destFile, true);
+                user.ProfilePicturePath = destFile;
+            }
+            catch
+            {
+                user.ProfilePicturePath = profilePicturePath;
+            }
+        }
+        else if (profilePicturePath == null)
+        {
+            user.ProfilePicturePath = null;
+        }
+
+        await _context.SaveChangesAsync();
+        CurrentUser = user;
+
+        return new AuthResult { Success = true, User = user };
+    }
+
+    public async Task<AuthResult> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+            return new AuthResult { Success = false, ErrorMessage = "Informe sua senha atual." };
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            return new AuthResult { Success = false, ErrorMessage = "A nova senha deve ter no mínimo 6 caracteres." };
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return new AuthResult { Success = false, ErrorMessage = "Usuário não encontrado." };
+
+        if (!VerifyPassword(currentPassword, user.PasswordHash, user.PasswordSalt))
+            return new AuthResult { Success = false, ErrorMessage = "A senha atual informada está incorreta." };
+
+        var (newHash, newSalt) = HashPassword(newPassword);
+        user.PasswordHash = newHash;
+        user.PasswordSalt = newSalt;
+
+        await _context.SaveChangesAsync();
+        CurrentUser = user;
+
+        return new AuthResult { Success = true, User = user };
+    }
+
+    public async Task<AuthResult> DeleteAccountAsync(int userId, string confirmationPassword)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return new AuthResult { Success = false, ErrorMessage = "Usuário não encontrado." };
+
+        if (!VerifyPassword(confirmationPassword, user.PasswordHash, user.PasswordSalt))
+            return new AuthResult { Success = false, ErrorMessage = "Senha incorreta. Não foi possível confirmar a exclusão da conta." };
+
+        // Excluir sessões
+        var sessions = await _context.UserSessions.Where(s => s.UserId == userId).ToListAsync();
+        _context.UserSessions.RemoveRange(sessions);
+
+        // Excluir códigos
+        var codes = await _context.EmailVerificationCodes.Where(c => c.UserId == userId).ToListAsync();
+        _context.EmailVerificationCodes.RemoveRange(codes);
+
+        // Excluir Tarefas Diárias e seus registros
+        var dailyTasks = await _context.DailyTasks.Where(t => t.UserId == userId).ToListAsync();
+        _context.DailyTasks.RemoveRange(dailyTasks);
+
+        // Excluir Colunas e Tarefas do Kanban
+        var columns = await _context.Columns.Where(c => c.UserId == userId).ToListAsync();
+        _context.Columns.RemoveRange(columns);
+
+        // Excluir o usuário
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+
+        CurrentUser = null;
+        return new AuthResult { Success = true };
+    }
+
     private async Task GenerateAndSendVerificationCodeAsync(User user)
     {
-        // Gerar código aleatório de 6 dígitos
         var random = new Random();
         string code = random.Next(100000, 999999).ToString();
 
@@ -240,7 +344,6 @@ public class AuthService : IAuthService
         _ = _emailService.SendVerificationCodeEmailAsync(user.Email, user.Name, code);
     }
 
-    // Hash PBKDF2 com Salt
     private static (string Hash, string Salt) HashPassword(string password)
     {
         byte[] saltBytes = new byte[16];
