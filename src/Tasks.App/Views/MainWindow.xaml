@@ -131,20 +131,45 @@
 
                     <!-- Rodapé da Sidebar: Perfil + Tema + Logout -->
                     <StackPanel Grid.Row="2">
-                        <!-- Perfil do Usuário Logado -->
-                        <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="10,8" Margin="0,0,0,10">
+                        <!-- Perfil do Usuário Logado (Clicável para Configurações) -->
+                        <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}" 
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10" 
+                                Padding="10,8" 
+                                Margin="0,0,0,10"
+                                Cursor="Hand">
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick" Command="{Binding OpenProfileSettingsCommand}"/>
+                            </Border.InputBindings>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="16" Background="#6366F1" Margin="0,0,8,0">
-                                    <ui:SymbolIcon Symbol="Person24" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                                <!-- Avatar do Usuário -->
+                                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17" Background="#6366F1" Margin="0,0,8,0" ClipToBounds="True">
+                                    <Grid>
+                                        <ui:SymbolIcon Symbol="Person24" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Image Source="{Binding CurrentUserProfilePicture}" Stretch="UniformToFill" Visibility="{Binding HasUserProfilePicture, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                    </Grid>
                                 </Border>
+
+                                <!-- Dados -->
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding CurrentUserName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                                     <TextBlock Text="{Binding CurrentUserEmail}" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
+
+                                <!-- Ícone de Configuração -->
+                                <ui:Button Grid.Column="2" 
+                                           Icon="{ui:SymbolIcon Settings20}" 
+                                           Appearance="Transparent" 
+                                           Padding="4"
+                                           ToolTip="Gerenciar Perfil e Conta"
+                                           Command="{Binding OpenProfileSettingsCommand}"/>
                             </Grid>
                         </Border>
 
