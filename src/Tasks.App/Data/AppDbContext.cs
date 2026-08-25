@@ -8,6 +8,11 @@ namespace Tasks.App.Data;
 
 public class AppDbContext : DbContext
 {
+    // Autenticação & Usuários
+    public DbSet<User> Users => Set<User>();
+    public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+
     // Meu Dia a Dia
     public DbSet<DailyTask> DailyTasks => Set<DailyTask>();
     public DbSet<DailyChecklistItem> DailyChecklistItems => Set<DailyChecklistItem>();
@@ -44,17 +49,46 @@ public class AppDbContext : DbContext
     {
         await Database.EnsureCreatedAsync();
 
-        // Garante que todas as tabelas novas existam mesmo se o arquivo .db já tiver sido criado em versões anteriores
         const string sql = @"
+            CREATE TABLE IF NOT EXISTS ""Users"" (
+                ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                ""Name"" TEXT NOT NULL,
+                ""Email"" TEXT NOT NULL,
+                ""PasswordHash"" TEXT NOT NULL,
+                ""PasswordSalt"" TEXT NOT NULL,
+                ""IsEmailVerified"" INTEGER NOT NULL,
+                ""CreatedAt"" TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS ""EmailVerificationCodes"" (
+                ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                ""UserId"" INTEGER NOT NULL,
+                ""Code"" TEXT NOT NULL,
+                ""ExpiresAt"" TEXT NOT NULL,
+                ""IsUsed"" INTEGER NOT NULL,
+                ""CreatedAt"" TEXT NOT NULL,
+                FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS ""UserSessions"" (
+                ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                ""UserId"" INTEGER NOT NULL,
+                ""SessionToken"" TEXT NOT NULL,
+                ""CreatedAt"" TEXT NOT NULL,
+                FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS ""DailyTasks"" (
                 ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                ""UserId"" INTEGER NOT NULL DEFAULT 1,
                 ""Title"" TEXT NOT NULL,
                 ""Description"" TEXT NULL,
                 ""Priority"" INTEGER NOT NULL,
                 ""Recurrence"" INTEGER NOT NULL,
                 ""StartDate"" TEXT NOT NULL,
                 ""EndDate"" TEXT NULL,
-                ""CreatedAt"" TEXT NOT NULL
+                ""CreatedAt"" TEXT NOT NULL,
+                FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS ""DailyChecklistItems"" (
@@ -84,9 +118,11 @@ public class AppDbContext : DbContext
 
             CREATE TABLE IF NOT EXISTS ""Columns"" (
                 ""Id"" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                ""UserId"" INTEGER NOT NULL DEFAULT 1,
                 ""Title"" TEXT NOT NULL,
                 ""Order"" INTEGER NOT NULL,
-                ""ColorHex"" TEXT NOT NULL
+                ""ColorHex"" TEXT NOT NULL,
+                FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS ""Tasks"" (
@@ -112,11 +148,37 @@ public class AppDbContext : DbContext
         ";
 
         await Database.ExecuteSqlRawAsync(sql);
+
+        // Garante a presença da coluna UserId em bancos legados
+        try
+        {
+            await Database.ExecuteSqlRawAsync("ALTER TABLE \"DailyTasks\" ADD COLUMN \"UserId\" INTEGER NOT NULL DEFAULT 1;");
+        }
+        catch { /* Coluna já existe */ }
+
+        try
+        {
+            await Database.ExecuteSqlRawAsync("ALTER TABLE \"Columns\" ADD COLUMN \"UserId\" INTEGER NOT NULL DEFAULT 1;");
+        }
+        catch { /* Coluna já existe */ }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Usuário -> Tarefas Diárias & Colunas
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.DailyTasks)
+            .WithOne(t => t.User)
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.GoalColumns)
+            .WithOne(c => c.User)
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Relacionamentos DailyTask
         modelBuilder.Entity<DailyTask>()
