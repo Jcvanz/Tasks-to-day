@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Tasks.App.Data;
 using Tasks.App.Models;
@@ -33,10 +29,10 @@ public class DayOverview
 
 public interface IDailyTaskService
 {
-    Task InitializeAsync();
-    Task<List<DailyTaskWithStatus>> GetTasksForDateAsync(DateTime targetDate);
-    Task<Dictionary<DateTime, DayOverview>> GetMonthOverviewAsync(int year, int month);
-    Task<DailyTask> SaveDailyTaskAsync(DailyTask task, List<string> checklistTitles);
+    Task InitializeForUserAsync(int userId);
+    Task<List<DailyTaskWithStatus>> GetTasksForDateAsync(DateTime targetDate, int userId);
+    Task<Dictionary<DateTime, DayOverview>> GetMonthOverviewAsync(int year, int month, int userId);
+    Task<DailyTask> SaveDailyTaskAsync(DailyTask task, List<string> checklistTitles, int userId);
     Task ToggleTaskCompletionAsync(int taskId, DateTime date, bool isCompleted);
     Task ToggleChecklistCompletionAsync(int checklistItemId, DateTime date, bool isCompleted);
     Task DeleteDailyTaskAsync(int taskId);
@@ -51,16 +47,17 @@ public class DailyTaskService : IDailyTaskService
         _context = context;
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeForUserAsync(int userId)
     {
         await _context.EnsureTablesCreatedAsync();
 
-        if (!await _context.DailyTasks.AnyAsync())
+        if (!await _context.DailyTasks.AnyAsync(t => t.UserId == userId))
         {
             var today = DateTime.Today;
 
             var welcomeDailyTask = new DailyTask
             {
+                UserId = userId,
                 Title = "Planejar o dia e revisar prioridades 📝",
                 Description = "Organize suas principais tarefas e objetivos de hoje.",
                 Priority = TaskPriority.Alta,
@@ -77,6 +74,7 @@ public class DailyTaskService : IDailyTaskService
 
             var hydrationTask = new DailyTask
             {
+                UserId = userId,
                 Title = "Beber 2L de água 💧",
                 Description = "Manter-se hidratado durante a jornada de trabalho.",
                 Priority = TaskPriority.Media,
@@ -87,6 +85,7 @@ public class DailyTaskService : IDailyTaskService
 
             var workoutTask = new DailyTask
             {
+                UserId = userId,
                 Title = "Treino / Caminhada de 30 minutos 🏃",
                 Description = "Atividade física para manter o corpo e a mente saudáveis.",
                 Priority = TaskPriority.Media,
@@ -100,23 +99,19 @@ public class DailyTaskService : IDailyTaskService
         }
     }
 
-    public async Task<List<DailyTaskWithStatus>> GetTasksForDateAsync(DateTime targetDate)
+    public async Task<List<DailyTaskWithStatus>> GetTasksForDateAsync(DateTime targetDate, int userId)
     {
         var dateOnly = targetDate.Date;
 
-        // Buscar tarefas candidatas (que iniciaram na ou antes da data selecionada)
         var allTasks = await _context.DailyTasks
             .Include(t => t.Checklists.OrderBy(c => c.Order))
             .Include(t => t.Completions.Where(c => c.Date == dateOnly))
-            .Where(t => t.StartDate.Date <= dateOnly)
+            .Where(t => t.UserId == userId && t.StartDate.Date <= dateOnly)
             .AsNoTracking()
             .ToListAsync();
 
-        // Filtrar pela regra de recorrência
         var validTasks = allTasks.Where(t => IsTaskActiveOnDate(t, dateOnly)).ToList();
 
-        // Buscar status dos checklists para a data
-        var validTaskIds = validTasks.Select(t => t.Id).ToList();
         var checklistCompletions = await _context.DailyChecklistCompletions
             .Where(c => c.Date == dateOnly)
             .AsNoTracking()
@@ -148,18 +143,18 @@ public class DailyTaskService : IDailyTaskService
         return result.OrderBy(r => r.IsCompleted).ThenByDescending(r => r.Task.Priority).ToList();
     }
 
-    public async Task<Dictionary<DateTime, DayOverview>> GetMonthOverviewAsync(int year, int month)
+    public async Task<Dictionary<DateTime, DayOverview>> GetMonthOverviewAsync(int year, int month, int userId)
     {
         var firstDay = new DateTime(year, month, 1);
         var lastDay = firstDay.AddMonths(1).AddDays(-1);
 
         var allTasks = await _context.DailyTasks
-            .Where(t => t.StartDate.Date <= lastDay)
+            .Where(t => t.UserId == userId && t.StartDate.Date <= lastDay)
             .AsNoTracking()
             .ToListAsync();
 
         var completions = await _context.DailyTaskCompletions
-            .Where(c => c.Date >= firstDay && c.Date <= lastDay && c.IsCompleted)
+            .Where(c => c.DailyTask!.UserId == userId && c.Date >= firstDay && c.Date <= lastDay && c.IsCompleted)
             .AsNoTracking()
             .ToListAsync();
 
@@ -203,13 +198,14 @@ public class DailyTaskService : IDailyTaskService
         };
     }
 
-    public async Task<DailyTask> SaveDailyTaskAsync(DailyTask task, List<string> checklistTitles)
+    public async Task<DailyTask> SaveDailyTaskAsync(DailyTask task, List<string> checklistTitles, int userId)
     {
+        task.UserId = userId;
+
         if (task.Id == 0)
         {
             task.CreatedAt = DateTime.UtcNow;
 
-            // Adicionar subtarefas
             for (int i = 0; i < checklistTitles.Count; i++)
             {
                 task.Checklists.Add(new DailyChecklistItem
@@ -225,7 +221,7 @@ public class DailyTaskService : IDailyTaskService
         {
             var existing = await _context.DailyTasks
                 .Include(t => t.Checklists)
-                .FirstOrDefaultAsync(t => t.Id == task.Id);
+                .FirstOrDefaultAsync(t => t.Id == task.Id && t.UserId == userId);
 
             if (existing != null)
             {
@@ -236,7 +232,6 @@ public class DailyTaskService : IDailyTaskService
                 existing.StartDate = task.StartDate;
                 existing.EndDate = task.EndDate;
 
-                // Atualizar checklists simples
                 _context.DailyChecklistItems.RemoveRange(existing.Checklists);
                 for (int i = 0; i < checklistTitles.Count; i++)
                 {

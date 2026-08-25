@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Tasks.App.Data;
 using Tasks.App.Models;
@@ -9,15 +6,15 @@ namespace Tasks.App.Services;
 
 public interface ITaskService
 {
-    Task InitializeDatabaseAsync();
-    Task<List<TaskColumn>> GetColumnsWithTasksAsync();
+    Task InitializeDatabaseForUserAsync(int userId);
+    Task<List<TaskColumn>> GetColumnsWithTasksAsync(int userId);
     Task<TaskItem> SaveTaskAsync(TaskItem task);
     Task DeleteTaskAsync(int taskId);
     Task MoveTaskAsync(int taskId, int targetColumnId, int newOrderIndex);
     Task<ChecklistItem> AddChecklistItemAsync(int taskId, string title);
     Task ToggleChecklistItemAsync(int itemId, bool isCompleted);
     Task DeleteChecklistItemAsync(int itemId);
-    Task<TaskColumn> AddColumnAsync(string title, string colorHex);
+    Task<TaskColumn> AddColumnAsync(string title, string colorHex, int userId);
     Task DeleteColumnAsync(int columnId);
 }
 
@@ -30,48 +27,47 @@ public class TaskService : ITaskService
         _context = context;
     }
 
-    public async Task InitializeDatabaseAsync()
+    public async Task InitializeDatabaseForUserAsync(int userId)
     {
         await _context.EnsureTablesCreatedAsync();
 
-        if (!await _context.Columns.AnyAsync())
+        if (!await _context.Columns.AnyAsync(c => c.UserId == userId))
         {
             var defaultColumns = new List<TaskColumn>
             {
-                new() { Title = "A Fazer", Order = 0, ColorHex = "#6366F1" },       // Indigo
-                new() { Title = "Em Andamento", Order = 1, ColorHex = "#3B82F6" },   // Blue
-                new() { Title = "Em Revisão", Order = 2, ColorHex = "#F59E0B" },     // Amber
-                new() { Title = "Concluído", Order = 3, ColorHex = "#10B981" }       // Emerald
+                new() { UserId = userId, Title = "Planejado", Order = 0, ColorHex = "#6366F1" },       // Indigo
+                new() { UserId = userId, Title = "Em Execução", Order = 1, ColorHex = "#3B82F6" },     // Blue
+                new() { UserId = userId, Title = "Em Revisão", Order = 2, ColorHex = "#F59E0B" },       // Amber
+                new() { UserId = userId, Title = "Alcançado", Order = 3, ColorHex = "#10B981" }         // Emerald
             };
 
             await _context.Columns.AddRangeAsync(defaultColumns);
             await _context.SaveChangesAsync();
 
-            // Adicionar uma tarefa de boas-vindas com checklist
-            var welcomeTask = new TaskItem
+            var welcomeGoal = new TaskItem
             {
-                Title = "Bem-vindo ao seu novo Kanban! 🚀",
-                Description = "Arraste os cards entre as colunas, crie subtarefas e organize seu dia a dia.",
+                Title = "Definir meu primeiro grande objetivo 🎯",
+                Description = "Use este quadro Kanban para estruturar metas, projetos de estudo ou carreira.",
                 Priority = TaskPriority.Alta,
                 ColumnId = defaultColumns[0].Id,
                 Order = 0,
                 CreatedAt = System.DateTime.UtcNow,
                 Checklist = new List<ChecklistItem>
                 {
-                    new() { Title = "Experimentar arrastar este card para 'Em Andamento'", IsCompleted = false, Order = 0 },
-                    new() { Title = "Criar uma nova tarefa pelo botão '+'", IsCompleted = false, Order = 1 },
-                    new() { Title = "Testar o ícone na bandeja do Windows (System Tray)", IsCompleted = false, Order = 2 }
+                    new() { Title = "Escrever os passos necessários", IsCompleted = false, Order = 0 },
+                    new() { Title = "Definir prazo de conclusão", IsCompleted = false, Order = 1 }
                 }
             };
 
-            await _context.Tasks.AddAsync(welcomeTask);
+            await _context.Tasks.AddAsync(welcomeGoal);
             await _context.SaveChangesAsync();
         }
     }
 
-    public async Task<List<TaskColumn>> GetColumnsWithTasksAsync()
+    public async Task<List<TaskColumn>> GetColumnsWithTasksAsync(int userId)
     {
         return await _context.Columns
+            .Where(c => c.UserId == userId)
             .OrderBy(c => c.Order)
             .Include(c => c.Tasks.OrderBy(t => t.Order))
                 .ThenInclude(t => t.Checklist.OrderBy(cl => cl.Order))
@@ -83,7 +79,6 @@ public class TaskService : ITaskService
     {
         if (task.Id == 0)
         {
-            // Nova tarefa: posicionar no final da coluna
             var maxOrder = await _context.Tasks
                 .Where(t => t.ColumnId == task.ColumnId)
                 .Select(t => (int?)t.Order)
@@ -95,7 +90,6 @@ public class TaskService : ITaskService
         }
         else
         {
-            // Atualizar tarefa existente
             var existing = await _context.Tasks
                 .Include(t => t.Checklist)
                 .FirstOrDefaultAsync(t => t.Id == task.Id);
@@ -107,6 +101,22 @@ public class TaskService : ITaskService
                 existing.Priority = task.Priority;
                 existing.DueDate = task.DueDate;
                 existing.ColumnId = task.ColumnId;
+
+                // Sincroniza e salva o status de conclusão dos itens do checklist
+                _context.ChecklistItems.RemoveRange(existing.Checklist);
+                existing.Checklist.Clear();
+
+                for (int i = 0; i < task.Checklist.Count; i++)
+                {
+                    var item = task.Checklist[i];
+                    existing.Checklist.Add(new ChecklistItem
+                    {
+                        TaskItemId = existing.Id,
+                        Title = item.Title,
+                        IsCompleted = item.IsCompleted,
+                        Order = i
+                    });
+                }
             }
         }
 
@@ -132,7 +142,6 @@ public class TaskService : ITaskService
         int oldColumnId = task.ColumnId;
         task.ColumnId = targetColumnId;
 
-        // Pegar todas as tarefas da coluna destino
         var targetTasks = await _context.Tasks
             .Where(t => t.ColumnId == targetColumnId && t.Id != taskId)
             .OrderBy(t => t.Order)
@@ -143,13 +152,11 @@ public class TaskService : ITaskService
 
         targetTasks.Insert(newOrderIndex, task);
 
-        // Reordenar a coluna destino
         for (int i = 0; i < targetTasks.Count; i++)
         {
             targetTasks[i].Order = i;
         }
 
-        // Se mudou de coluna, reordenar a coluna antiga também
         if (oldColumnId != targetColumnId)
         {
             var oldTasks = await _context.Tasks
@@ -206,14 +213,16 @@ public class TaskService : ITaskService
         }
     }
 
-    public async Task<TaskColumn> AddColumnAsync(string title, string colorHex)
+    public async Task<TaskColumn> AddColumnAsync(string title, string colorHex, int userId)
     {
         var maxOrder = await _context.Columns
+            .Where(c => c.UserId == userId)
             .Select(c => (int?)c.Order)
             .MaxAsync() ?? -1;
 
         var column = new TaskColumn
         {
+            UserId = userId,
             Title = title,
             ColorHex = colorHex,
             Order = maxOrder + 1
