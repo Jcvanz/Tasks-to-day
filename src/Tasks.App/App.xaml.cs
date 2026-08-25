@@ -109,14 +109,29 @@ public partial class App : Application
             return Task.FromResult(result == true);
         });
 
+        // Fábrica para o Modal de Configurações de Perfil / Conta
+        services.AddSingleton<Func<Task<bool>>>(sp => () =>
+        {
+            var authService = sp.GetRequiredService<IAuthService>();
+            var profileVm = new ProfileSettingsViewModel(authService);
+            var profileWindow = new ProfileSettingsWindow(profileVm)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            var result = profileWindow.ShowDialog();
+            return Task.FromResult(result == true);
+        });
+
         // ViewModels
         services.AddTransient<AuthViewModel>();
+        services.AddTransient<ProfileSettingsViewModel>();
         services.AddSingleton<DailyTasksViewModel>();
         services.AddSingleton<KanbanViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // Telas / Views
         services.AddTransient<AuthWindow>();
+        services.AddTransient<ProfileSettingsWindow>();
         services.AddSingleton<MainWindow>();
     }
 }

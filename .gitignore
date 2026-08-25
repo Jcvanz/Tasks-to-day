@@ -16,3 +16,7 @@
 *.db-wal
 
 .env
+
+# Publish output
+publish/
+[Pp]ublish/

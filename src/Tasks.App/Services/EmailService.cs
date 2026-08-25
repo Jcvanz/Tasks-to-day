@@ -1,16 +1,22 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Net.Mail;
+using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace Tasks.App.Services;
 
 public class SmtpConfig
 {
+    public string ApiUrl { get; set; } = string.Empty;
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; } = 587;
-    public string SenderName { get; set; } = "Tasks App";
+    public string SenderName { get; set; } = "Tasks To Day";
     public string SenderEmail { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
@@ -29,6 +35,7 @@ public interface IEmailService
 
 public class EmailService : IEmailService
 {
+    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
     private SmtpConfig? _smtpConfig;
 
     public EmailService()
@@ -40,7 +47,10 @@ public class EmailService : IEmailService
     {
         _smtpConfig = new SmtpConfig();
 
-        // Carrega do arquivo appsettings.json se existir
+        // 1. Carrega do arquivo .env se existir no ambiente de desenvolvimento
+        LoadFromDotEnvFile();
+
+        // 2. Carrega do arquivo appsettings.json se existir
         try
         {
             string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
@@ -50,7 +60,13 @@ public class EmailService : IEmailService
                 var config = JsonSerializer.Deserialize<AppConfig>(json);
                 if (config?.SmtpSettings != null)
                 {
-                    _smtpConfig = config.SmtpSettings;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.ApiUrl)) _smtpConfig.ApiUrl = config.SmtpSettings.ApiUrl;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.Host)) _smtpConfig.Host = config.SmtpSettings.Host;
+                    if (config.SmtpSettings.Port > 0) _smtpConfig.Port = config.SmtpSettings.Port;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.Username)) _smtpConfig.Username = config.SmtpSettings.Username;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.Password)) _smtpConfig.Password = config.SmtpSettings.Password;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.SenderName)) _smtpConfig.SenderName = config.SmtpSettings.SenderName;
+                    if (!string.IsNullOrWhiteSpace(config.SmtpSettings.SenderEmail)) _smtpConfig.SenderEmail = config.SmtpSettings.SenderEmail;
                 }
             }
         }
@@ -58,16 +74,12 @@ public class EmailService : IEmailService
         {
             // fallback
         }
-
-        // Carrega do arquivo .env (se existir na raiz ou na pasta de execução)
-        LoadFromDotEnvFile();
     }
 
     private void LoadFromDotEnvFile()
     {
         try
         {
-            // Procurar .env no diretório base ou nos diretórios pai (raiz do projeto/solução)
             var candidates = new List<string>
             {
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env"),
@@ -99,7 +111,8 @@ public class EmailService : IEmailService
 
                             _smtpConfig ??= new SmtpConfig();
 
-                            if (key is "SMTP_HOST" or "TASKS_SMTP_HOST" or "HOST") _smtpConfig.Host = val;
+                            if (key is "MAIL_API_URL" or "API_URL" or "VERCEL_API_URL") _smtpConfig.ApiUrl = val;
+                            else if (key is "SMTP_HOST" or "TASKS_SMTP_HOST" or "HOST") _smtpConfig.Host = val;
                             else if (key is "SMTP_PORT" or "TASKS_SMTP_PORT" or "PORT")
                             {
                                 if (int.TryParse(val, out int port)) _smtpConfig.Port = port;
@@ -122,26 +135,35 @@ public class EmailService : IEmailService
 
     public async Task<bool> SendVerificationCodeEmailAsync(string toEmail, string userName, string code)
     {
-        string htmlBody = $@"
-        <div style='font-family: Arial, sans-serif; background-color: #0f172a; padding: 40px 20px; color: #f8fafc;'>
-            <div style='max-width: 500px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid #334155; text-align: center;'>
-                <div style='display: inline-block; width: 50px; height: 50px; background-color: #6366f1; border-radius: 12px; line-height: 50px; font-size: 24px; color: white; margin-bottom: 20px;'>
-                    ✓
-                </div>
-                <h2 style='color: #ffffff; margin-bottom: 8px;'>Verificação de Conta</h2>
-                <p style='color: #94a3b8; font-size: 14px; margin-bottom: 24px;'>
-                    Olá, <strong>{userName}</strong>! Use o código de 6 dígitos abaixo para confirmar seu cadastro no <strong>Tasks</strong>.
-                </p>
-                <div style='background-color: #0f172a; border: 2px dashed #6366f1; border-radius: 12px; padding: 18px; margin-bottom: 24px;'>
-                    <span style='font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #818cf8;'>{code}</span>
-                </div>
-                <p style='color: #64748b; font-size: 12px; margin-bottom: 0;'>
-                    Este código expira em 15 minutos. Se você não solicitou este cadastro, desconsidere esta mensagem.
-                </p>
-            </div>
-        </div>";
+        // 1. Prioridade: Se houver API Serverless na nuvem configurada (Vercel)
+        if (_smtpConfig != null && !string.IsNullOrWhiteSpace(_smtpConfig.ApiUrl))
+        {
+            try
+            {
+                var payload = new
+                {
+                    toEmail,
+                    userName,
+                    code
+                };
 
-        // Se houver configuração SMTP válida
+                string json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(_smtpConfig.ApiUrl, content);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowDevCodeModal(toEmail, code, $"Erro ao conectar à API Vercel ({ex.Message}).");
+                return true;
+            }
+        }
+
+        // 2. Se houver configuração SMTP direta (no .env local)
         if (_smtpConfig != null && 
             !string.IsNullOrWhiteSpace(_smtpConfig.Host) && 
             !string.IsNullOrWhiteSpace(_smtpConfig.Username) && 
@@ -149,6 +171,25 @@ public class EmailService : IEmailService
         {
             try
             {
+                string htmlBody = $@"
+                <div style='font-family: Arial, sans-serif; background-color: #0f172a; padding: 40px 20px; color: #f8fafc;'>
+                    <div style='max-width: 500px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid #334155; text-align: center;'>
+                        <div style='display: inline-block; width: 50px; height: 50px; background-color: #6366f1; border-radius: 12px; line-height: 50px; font-size: 24px; color: white; margin-bottom: 20px;'>
+                            ✓
+                        </div>
+                        <h2 style='color: #ffffff; margin-bottom: 8px;'>Verificação de Conta</h2>
+                        <p style='color: #94a3b8; font-size: 14px; margin-bottom: 24px;'>
+                            Olá, <strong>{userName}</strong>! Use o código de 6 dígitos abaixo para confirmar seu cadastro no <strong>Tasks</strong>.
+                        </p>
+                        <div style='background-color: #0f172a; border: 2px dashed #6366f1; border-radius: 12px; padding: 18px; margin-bottom: 24px;'>
+                            <span style='font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #818cf8;'>{code}</span>
+                        </div>
+                        <p style='color: #64748b; font-size: 12px; margin-bottom: 0;'>
+                            Este código expira em 15 minutos. Se você não solicitou este cadastro, desconsidere esta mensagem.
+                        </p>
+                    </div>
+                </div>";
+
                 using var client = new SmtpClient(_smtpConfig.Host, _smtpConfig.Port)
                 {
                     Credentials = new NetworkCredential(_smtpConfig.Username, _smtpConfig.Password),
@@ -176,8 +217,8 @@ public class EmailService : IEmailService
         }
         else
         {
-            // Modo local de desenvolvimento quando SMTP ainda não foi preenchido
-            ShowDevCodeModal(toEmail, code, "Para envio de e-mails reais, configure o arquivo '.env' ou 'appsettings.json' com seu SMTP.");
+            // Modo de demonstração / fallback local
+            ShowDevCodeModal(toEmail, code, "Modo local: configure a URL da Vercel ou o SMTP para envio real de e-mails.");
             return true;
         }
     }

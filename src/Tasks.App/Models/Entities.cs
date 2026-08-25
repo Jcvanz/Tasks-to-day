@@ -30,6 +30,8 @@ public class User
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? ProfilePicturePath { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
     public string PasswordSalt { get; set; } = string.Empty;
     public bool IsEmailVerified { get; set; }

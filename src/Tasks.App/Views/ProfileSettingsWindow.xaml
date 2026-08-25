@@ -1,0 +1,186 @@
+<ui:FluentWindow x:Class="Tasks.App.Views.ProfileSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:conv="clr-namespace:Tasks.App.Converters"
+        xmlns:vm="clr-namespace:Tasks.App.ViewModels"
+        mc:Ignorable="d"
+        Title="Configurações da Conta"
+        Height="620" Width="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Mica">
+
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="24,12,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- TitleBar -->
+            <RowDefinition Height="*"/>    <!-- Abas / Conteúdo -->
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Minha Conta &amp; Perfil" ShowMaximize="False" ShowMinimize="False" Margin="-24,-12,-24,12"/>
+
+        <!-- Abas de Configuração -->
+        <TabControl Grid.Row="1">
+            <!-- ================= ABA 1: MEU PERFIL ================= -->
+            <TabItem Header="Meu Perfil">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,16,6,0">
+                    <StackPanel>
+                        <!-- Mensagens de Alerta Perfil -->
+                        <Border Background="#25EF4444" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10" Visibility="{Binding ProfileErrorMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding ProfileErrorMessage}" Foreground="#EF4444" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+                        <Border Background="#2510B981" BorderBrush="#10B981" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10" Visibility="{Binding ProfileSuccessMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding ProfileSuccessMessage}" Foreground="#10B981" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Foto de Perfil / Avatar -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Avatar Preview -->
+                            <Border Grid.Column="0" Width="80" Height="80" CornerRadius="40" Background="#6366F1" Margin="0,0,16,0" ClipToBounds="True" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="2">
+                                <Grid>
+                                    <ui:SymbolIcon Symbol="Person24" FontSize="36" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Image Source="{Binding ProfilePicturePath}" Stretch="UniformToFill" Visibility="{Binding HasProfilePicture, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Botões de Foto -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Foto de Perfil" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                <TextBlock Text="Formatos suportados: PNG, JPG ou WEBP" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:Button Content="Alterar Foto" 
+                                               Icon="{ui:SymbolIcon Camera20}" 
+                                               Appearance="Secondary" 
+                                               Padding="12,6" 
+                                               Margin="0,0,8,0"
+                                               Command="{Binding ChooseProfilePictureCommand}"/>
+                                    <ui:Button Content="Remover" 
+                                               Appearance="Transparent" 
+                                               Foreground="#EF4444"
+                                               Padding="8,6"
+                                               Visibility="{Binding HasProfilePicture, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                               Command="{Binding RemoveProfilePictureCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Nome Completo -->
+                        <TextBlock Text="Nome Completo *" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Seu nome" Margin="0,0,0,14" FontSize="14"/>
+
+                        <!-- E-mail (Somente Leitura) -->
+                        <TextBlock Text="E-mail Cadastrado" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <Grid Margin="0,0,0,14">
+                            <ui:TextBox Text="{Binding Email}" IsReadOnly="True" FontSize="14"/>
+                            <Border HorizontalAlignment="Right" Margin="0,0,8,0" VerticalAlignment="Center" Background="#2010B981" CornerRadius="6" Padding="6,2">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Checkmark16" FontSize="12" Foreground="#10B981" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Verificado" FontSize="11" FontWeight="SemiBold" Foreground="#10B981"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Telefone / WhatsApp -->
+                        <TextBlock Text="Telefone / WhatsApp (opcional)" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <ui:TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="(00) 00000-0000" Margin="0,0,0,24" FontSize="14"/>
+
+                        <!-- Botão Salvar -->
+                        <ui:Button Content="Salvar Alterações no Perfil" 
+                                   Appearance="Primary" 
+                                   FontWeight="Bold" 
+                                   HorizontalAlignment="Right" 
+                                   Padding="20,10"
+                                   Command="{Binding SaveProfileCommand}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ================= ABA 2: ALTERAR SENHA ================= -->
+            <TabItem Header="Segurança &amp; Senha">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,16,6,0">
+                    <StackPanel>
+                        <!-- Mensagens de Alerta Senha -->
+                        <Border Background="#25EF4444" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10" Visibility="{Binding PasswordErrorMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding PasswordErrorMessage}" Foreground="#EF4444" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+                        <Border Background="#2510B981" BorderBrush="#10B981" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10" Visibility="{Binding PasswordSuccessMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding PasswordSuccessMessage}" Foreground="#10B981" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <TextBlock Text="Altere sua senha de acesso" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="Para sua segurança, informe sua senha atual antes de criar uma nova." FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,16"/>
+
+                        <!-- Senha Atual -->
+                        <TextBlock Text="Senha Atual *" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <ui:PasswordBox x:Name="CurrentPasswordBox" PasswordChanged="CurrentPasswordBox_PasswordChanged" PlaceholderText="Digite sua senha atual" Margin="0,0,0,14" FontSize="14"/>
+
+                        <!-- Nova Senha -->
+                        <TextBlock Text="Nova Senha (mínimo 6 caracteres) *" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <ui:PasswordBox x:Name="NewPasswordBox" PasswordChanged="NewPasswordBox_PasswordChanged" PlaceholderText="Digite a nova senha" Margin="0,0,0,14" FontSize="14"/>
+
+                        <!-- Confirmar Nova Senha -->
+                        <TextBlock Text="Confirmar Nova Senha *" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <ui:PasswordBox x:Name="ConfirmNewPasswordBox" PasswordChanged="ConfirmNewPasswordBox_PasswordChanged" PlaceholderText="Repita a nova senha" Margin="0,0,0,24" FontSize="14"/>
+
+                        <!-- Botão Alterar Senha -->
+                        <ui:Button Content="Atualizar Senha" 
+                                   Appearance="Primary" 
+                                   FontWeight="Bold" 
+                                   HorizontalAlignment="Right" 
+                                   Padding="20,10"
+                                   Command="{Binding ChangePasswordCommand}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ================= ABA 3: ZONA DE PERIGO ================= -->
+            <TabItem Header="Zona de Perigo">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,16,6,0">
+                    <StackPanel>
+                        <!-- Mensagem de Erro Exclusão -->
+                        <Border Background="#25EF4444" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10" Visibility="{Binding DeleteErrorMessage, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding DeleteErrorMessage}" Foreground="#EF4444" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <Border Background="#15EF4444" BorderBrush="#80EF4444" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,20">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:SymbolIcon Symbol="Warning24" FontSize="20" Foreground="#EF4444" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Excluir Conta Permanentemente" FontSize="16" FontWeight="Bold" Foreground="#EF4444"/>
+                                </StackPanel>
+                                <TextBlock Text="Ao excluir sua conta, todos os seus dados serão apagados de forma irreversível:" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,8"/>
+                                <TextBlock Text="• Todas as tarefas do calendário diário e históricos de conclusão" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="12,0,0,4"/>
+                                <TextBlock Text="• Todos os quadros de metas e objetivos Kanban" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="12,0,0,4"/>
+                                <TextBlock Text="• Seu perfil e preferências" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="12,0,0,16"/>
+
+                                <TextBlock Text="Para confirmar, digite sua senha de acesso abaixo:" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                <ui:PasswordBox x:Name="DeletePasswordBox" PasswordChanged="DeletePasswordBox_PasswordChanged" PlaceholderText="Sua senha para confirmação" Margin="0,0,0,16" FontSize="14"/>
+
+                                <ui:Button Content="Excluir Minha Conta Permanentemente" 
+                                           Appearance="Primary" 
+                                           Background="#EF4444"
+                                           BorderBrush="#DC2626"
+                                           FontWeight="Bold" 
+                                           HorizontalAlignment="Right" 
+                                           Padding="20,10"
+                                           Command="{Binding DeleteAccountCommand}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</ui:FluentWindow>
