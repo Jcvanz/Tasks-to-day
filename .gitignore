@@ -20,3 +20,6 @@
 # Publish output
 publish/
 [Pp]ublish/
+
+*.iss
+Output/
